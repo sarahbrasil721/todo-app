@@ -5,37 +5,55 @@ import { ref, computed } from 'vue';
 
 //ref cria um dado reativo: quando o valor muda, a tela se atualiza sozinha. Em JavaScript, você acessa e altera o valor por .value.
 
+
+
+// NOVO: cada tarefa agora é um objeto, e não mais apenas um texto.
+interface Task {
+  id: number;
+  text: string;
+  done: boolean;
+}
+
+
 const newTask = ref('');
 // newTask = ref('') guarda o texto digitado no input.
-const tasks = ref<string[]>([]);
-//tasks = ref<string[]>([]) guarda a lista de tarefas. O <string[]> é a tipagem do TypeScript e indica um array de textos.
+const tasks = ref<Task[]>([]);
+//tasks = ref<Task[]>([]) guarda a lista de tarefas. O <Task[]> é a tipagem do TypeScript e indica um array de objetos Task.
 
 
-// NOVO: valor calculado a partir de `tasks`.
+// valor calculado a partir de `tasks`.
 // Sempre que a lista mudar, o Vue recalcula sozinho.
-const taskCount = computed(() => tasks.value.length);
+
+// NOVO: gerador simples de ids únicos (não precisa ser reativo).
+let nextId = 1;
+
+const totalCount = computed(() => tasks.value.length);
+
+
  
-// NOVO: um computed pode usar outro computed.
+// NOVO: conta só as tarefas concluídas.
+const completedCount = computed(() => tasks.value.filter((task) => task.done).length);
+ 
+// ATUALIZADO: o resumo agora usa os dois contadores.
 const summary = computed(() => {
-  if (taskCount.value === 0) return 'Nenhuma tarefa por enquanto';
-  if (taskCount.value === 1) return '1 tarefa na lista';
-  return `${taskCount.value} tarefas na lista`;
+  if (totalCount.value === 0) return 'Nenhuma tarefa por enquanto';
+  return `${completedCount.value} de ${totalCount.value} concluídas`;
 });
 
 
 function addTask() {
-  if (newTask.value.trim()) {
-    tasks.value.push(newTask.value.trim());
+  const text = newTask.value.trim();
+  if (text) {
+    // ATUALIZADO: agora adicionamos um objeto, com id e done.
+    tasks.value.push({ id: nextId++, text, done: false });
     newTask.value = '';
   }
-} //addTask(): faz trim() para remover espaços nas pontas e só adiciona se o texto não estiver vazio. Depois do push, limpa o input.
+} 
 
-function removeTask(index: number) {
-  tasks.value.splice(index, 1);
+// ATUALIZADO: remove pelo id, e não mais pela posição.
+function removeTask(id: number) {
+  tasks.value = tasks.value.filter((task) => task.id !== id);
 }
-
-// removeTask(index): usa splice(index, 1) para remover da lista o item naquela posição.
-
 </script>
 
 
@@ -59,22 +77,21 @@ function removeTask(index: number) {
 
 
      
-    <!-- NOVO: exibe o resultado do computed -->
+    <!-- exibe o resultado do computed -->
     <p class="summary">{{ summary }}</p>
 
+
     <ul>
-      <li v-for="(task, index) in tasks" :key="index">
-        {{ task }}
-        <button @click="removeTask(index)">Remover</button>
+      <!-- ATUALIZADO: a key agora é o id único da tarefa -->
+      <li v-for="task in tasks" :key="task.id">
+        <!-- NOVO: checkbox ligado ao campo `done` da tarefa -->
+        <label class="task-label">
+          <input type="checkbox" v-model="task.done" />
+          <!-- NOVO: aplica a classe `done` só quando a tarefa está concluída -->
+          <span :class="{ done: task.done }">{{ task.text }}</span>
+        </label>
+        <button @click="removeTask(task.id)">Remover</button>
       </li>
-      
-      <!-- v-for="(task, index) in tasks" repete o <li> para cada tarefa.
-            
-      :key="index" é a abreviação de v-bind:key. A key ajuda o Vue a //identificar cada item da lista.
-            
-      {{ task }} é a interpolação, que exibe o valor no HTML. -->
-
-
     </ul>
   </div>
 </template>
@@ -105,7 +122,6 @@ button {
   cursor: pointer;
 }
 
-/* NOVO */
 .summary {
   color: #666;
   margin-bottom: 20px;
@@ -119,5 +135,18 @@ li {
   display: flex;
   justify-content: space-between;
   margin-bottom: 10px;
+}
+
+/* NOVO */
+.task-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+/* NOVO: visual de tarefa concluída */
+.done {
+  text-decoration: line-through;
+  color: #999;
 }
 </style>
